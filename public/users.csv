@@ -1,0 +1,2 @@
+"id","name","email","email_verified_at","password","remember_token","created_at","updated_at","date_of_birth","gender","religion","joining_date","avatar","username"
+1,"Admin Admin","myadmin@admin.com",NULL,"$2y$12$gYcYIQrnBiKblB2/PwaYDOpgI.lzL3XZEf03.jbeWnvW/VwrxmbfO","e8IEY0BkjqsVM5hoWYyIcCkMweelohNNaKgIRpLWDqQ69aKt7RbMwd0inh7n","2024-09-16 17:58:03","2024-09-16 22:11:35",NULL,"male",NULL,NULL,NULL,"myadmin@admin.com"

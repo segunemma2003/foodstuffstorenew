@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@tailwind variants;
+
+.custom-li {
+    @apply block px-2 py-1 text-gray-600 transition duration-200 bg-red-500 rounded cursor-pointer hover:bg-blue-300 hover:text-white;
+}
