@@ -37,6 +37,13 @@ class WebhookController extends Controller
         ]);
 
         switch ($event) {
+            // Virtual account payment — forward to foodstuff-api to credit customer wallet
+            case 'charge.success':
+                Log::info('🔄 Processing charge.success event');
+                $result = $this->handleChargeSuccess($request->all());
+                Log::info('✅ charge.success event processed');
+                return $result;
+
             // Transfer Events
             case 'transfer.paid':
                 Log::info('🔄 Processing transfer.paid event');
@@ -367,6 +374,59 @@ class WebhookController extends Controller
                 'api_url_called' => 'https://nodopayapi-419811b691e7.herokuapp.com/api/payment-status/update'
             ]);
             Log::info('=== PAYMENT STATUS UPDATE FAILED ===');
+        }
+    }
+
+    private function handleChargeSuccess($payload)
+    {
+        Log::info('=== CHARGE SUCCESS PROCESSING STARTED ===');
+
+        try {
+            $data = $payload['data'] ?? [];
+            $reference = $data['reference'] ?? 'N/A';
+            $amount = $data['amount'] ?? 0;
+            $customerCode = ($data['customer'] ?? [])['customer_code'] ?? 'N/A';
+
+            Log::info('Charge success data', [
+                'reference' => $reference,
+                'amount_kobo' => $amount,
+                'customer_code' => $customerCode,
+            ]);
+
+            // Forward the full Paystack payload to foodstuff-api which handles
+            // wallet crediting, deduplication, and credit auto-repayment
+            $apiUrl = config('services.foodstuff_api.url', env('FOODSTUFF_API_URL', 'https://foodstuff-store-api-ff1db4a1d0cb.herokuapp.com'));
+            $endpoint = $apiUrl . '/api/payments/webhook/paystack';
+
+            Log::info('🔄 Forwarding charge.success to foodstuff-api', ['url' => $endpoint]);
+
+            $response = Http::timeout(30)->post($endpoint, $payload);
+
+            if ($response->successful()) {
+                Log::info('✅ charge.success forwarded successfully', [
+                    'reference' => $reference,
+                    'status_code' => $response->status(),
+                ]);
+            } else {
+                Log::error('❌ Failed to forward charge.success to foodstuff-api', [
+                    'reference' => $reference,
+                    'status_code' => $response->status(),
+                    'response' => $response->body(),
+                ]);
+            }
+
+            Log::info('=== CHARGE SUCCESS PROCESSING COMPLETED ===');
+            return response()->json(['status' => 'success']);
+
+        } catch (\Exception $e) {
+            Log::error('❌ Error handling charge.success webhook', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            Log::info('=== CHARGE SUCCESS PROCESSING FAILED ===');
+            // Return 200 so Paystack doesn't retry indefinitely
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
         }
     }
 

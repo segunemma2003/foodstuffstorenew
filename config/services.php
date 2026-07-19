@@ -56,4 +56,8 @@ return [
         'public_key' => env('PAYSTACK_PUBLIC_KEY'),
     ],
 
+    'foodstuff_api' => [
+        'url' => env('FOODSTUFF_API_URL', 'https://foodstuff-store-api-ff1db4a1d0cb.herokuapp.com'),
+    ],
+
 ];
