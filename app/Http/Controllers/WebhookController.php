@@ -37,31 +37,60 @@ class WebhookController extends Controller
         ]);
 
         switch ($event) {
-            // Virtual account payment — forward to foodstuff-api to credit customer wallet
+            // ── Inbound payments ────────────────────────────────────────────
+            // Customer pays into their Wema dedicated virtual account (DVA).
+            // channel=dedicated_nuban means it was a bank-to-DVA transfer.
+            // Paystack fires this AFTER the sender's bank OTP confirms the transfer.
             case 'charge.success':
                 Log::info('🔄 Processing charge.success event');
                 $result = $this->handleChargeSuccess($request->all());
                 Log::info('✅ charge.success event processed');
                 return $result;
 
-            // Transfer Events
+            // Payment attempt failed (card or DVA)
+            case 'charge.failed':
+                Log::info('🔄 Processing charge.failed event');
+                $result = $this->handleChargeFailed($request->all());
+                Log::info('✅ charge.failed event processed');
+                return $result;
+
+            // ── DVA assignment ─────��─────────────────────────────────────────
+            // Fires when Paystack successfully assigns (or fails to assign)
+            // a dedicated virtual account number to a customer
+            case 'dedicatedaccount.assign.success':
+            case 'dedicatedaccount.assign.failed':
+                Log::info('🔄 Processing DVA assignment event', ['event' => $event]);
+                $result = $this->forwardToFoodstuffApi($request->all());
+                Log::info('✅ DVA assignment event forwarded');
+                return $result;
+
+            // ── Outgoing vendor transfers ────────────────────────────────────
             case 'transfer.paid':
-                Log::info('🔄 Processing transfer.paid event');
+                Log::info('��� Processing transfer.paid event');
                 $result = $this->handleTransferPaid($data);
                 Log::info('✅ transfer.paid event processed');
                 return $result;
 
             case 'transfer.success':
-                Log::info('🔄 Processing transfer.success event');
+                Log::info('��� Processing transfer.success event');
                 $result = $this->handleTransferSuccess($data);
+                // Also notify foodstuff-api so vendor payout status can be tracked
+                $this->forwardToFoodstuffApi($request->all());
                 Log::info('✅ transfer.success event processed');
                 return $result;
 
             case 'transfer.failed':
                 Log::info('🔄 Processing transfer.failed event');
                 $result = $this->handleTransferFailed($data);
+                // Also notify foodstuff-api
+                $this->forwardToFoodstuffApi($request->all());
                 Log::info('✅ transfer.failed event processed');
                 return $result;
+
+            case 'transfer.reversed':
+                Log::warning('🔄 Transfer reversed', ['data' => $data]);
+                $this->forwardToFoodstuffApi($request->all());
+                return response()->json(['status' => 'success']);
 
             default:
                 Log::warning('⚠️ Unhandled Paystack event', ['event' => $event]);
@@ -383,37 +412,37 @@ class WebhookController extends Controller
 
         try {
             $data = $payload['data'] ?? [];
+            $channel = $data['channel'] ?? '';
             $reference = $data['reference'] ?? 'N/A';
             $amount = $data['amount'] ?? 0;
             $customerCode = ($data['customer'] ?? [])['customer_code'] ?? 'N/A';
 
             Log::info('Charge success data', [
                 'reference' => $reference,
+                'channel'   => $channel,
                 'amount_kobo' => $amount,
                 'customer_code' => $customerCode,
             ]);
 
-            // Forward the full Paystack payload to foodstuff-api which handles
-            // wallet crediting, deduplication, and credit auto-repayment
-            $apiUrl = config('services.foodstuff_api.url', env('FOODSTUFF_API_URL', 'https://foodstuff-store-api-ff1db4a1d0cb.herokuapp.com'));
-            $endpoint = $apiUrl . '/api/payments/webhook/paystack';
-
-            Log::info('🔄 Forwarding charge.success to foodstuff-api', ['url' => $endpoint]);
-
-            $response = Http::timeout(30)->post($endpoint, $payload);
-
-            if ($response->successful()) {
-                Log::info('✅ charge.success forwarded successfully', [
-                    'reference' => $reference,
-                    'status_code' => $response->status(),
-                ]);
-            } else {
-                Log::error('❌ Failed to forward charge.success to foodstuff-api', [
-                    'reference' => $reference,
-                    'status_code' => $response->status(),
-                    'response' => $response->body(),
-                ]);
+            // Save a local transaction record via PaystackService (handles deduplication
+            // by reference and only processes dedicated_nuban channel internally)
+            try {
+                $paystackService = app(\App\Services\PaystackService::class);
+                $paystackService->handleWebhook($payload);
+            } catch (\Exception $e) {
+                Log::warning('PaystackService::handleWebhook error (non-fatal): ' . $e->getMessage());
             }
+
+            // Only forward dedicated virtual account (DVA) payments to foodstuff-api.
+            // Other charge types (card, USSD) are not wallet top-ups for FSS customers.
+            if ($channel !== 'dedicated_nuban') {
+                Log::info('charge.success ignored for foodstuff-api (channel=' . $channel . ')');
+                return response()->json(['status' => 'success']);
+            }
+
+            // Forward to foodstuff-api — credits customer wallet, deduplicates,
+            // and auto-applies repayment if account is overdue
+            $this->forwardToFoodstuffApi($payload);
 
             Log::info('=== CHARGE SUCCESS PROCESSING COMPLETED ===');
             return response()->json(['status' => 'success']);
@@ -421,12 +450,74 @@ class WebhookController extends Controller
         } catch (\Exception $e) {
             Log::error('❌ Error handling charge.success webhook', [
                 'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
+                'file'  => $e->getFile(),
+                'line'  => $e->getLine(),
             ]);
-            Log::info('=== CHARGE SUCCESS PROCESSING FAILED ===');
-            // Return 200 so Paystack doesn't retry indefinitely
+            // Always return 200 so Paystack doesn't retry indefinitely
             return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
+        }
+    }
+
+    private function handleChargeFailed($payload)
+    {
+        Log::info('=== CHARGE FAILED PROCESSING STARTED ===');
+
+        try {
+            $data = $payload['data'] ?? [];
+            $channel   = $data['channel'] ?? '';
+            $reference = $data['reference'] ?? 'N/A';
+            $amount    = $data['amount'] ?? 0;
+            $gatewayResponse = $data['gateway_response'] ?? 'Unknown';
+
+            Log::warning('❌ Charge failed', [
+                'reference'        => $reference,
+                'channel'          => $channel,
+                'amount_kobo'      => $amount,
+                'gateway_response' => $gatewayResponse,
+            ]);
+
+            // Notify foodstuff-api so it can mark any pending transaction as failed
+            if ($channel === 'dedicated_nuban') {
+                $this->forwardToFoodstuffApi($payload);
+            }
+
+            Log::info('=== CHARGE FAILED PROCESSING COMPLETED ===');
+            return response()->json(['status' => 'success']);
+
+        } catch (\Exception $e) {
+            Log::error('❌ Error handling charge.failed webhook', [
+                'error' => $e->getMessage(),
+                'file'  => $e->getFile(),
+                'line'  => $e->getLine(),
+            ]);
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Forward any Paystack payload to foodstuff-api's webhook endpoint.
+     * Failures here are logged but never throw — the caller already responded to Paystack.
+     */
+    private function forwardToFoodstuffApi($payload)
+    {
+        try {
+            $apiUrl   = config('services.foodstuff_api.url', 'https://foodstuff-store-api-ff1db4a1d0cb.herokuapp.com');
+            $endpoint = $apiUrl . '/api/payments/webhook/paystack';
+            $event    = $payload['event'] ?? 'unknown';
+
+            $response = Http::timeout(30)->post($endpoint, $payload);
+
+            if ($response->successful()) {
+                Log::info('✅ Forwarded to foodstuff-api', ['event' => $event, 'status' => $response->status()]);
+            } else {
+                Log::error('❌ foodstuff-api forward failed', [
+                    'event'  => $event,
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('❌ Exception forwarding to foodstuff-api', ['error' => $e->getMessage()]);
         }
     }
 
