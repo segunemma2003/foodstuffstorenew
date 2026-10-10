@@ -43,6 +43,13 @@ class WebhookController extends Controller
             // Paystack fires this AFTER the sender's bank OTP confirms the transfer.
             case 'charge.success':
                 Log::info('🔄 Processing charge.success event');
+                // Vendor-side settlement wallets (nodo/FS Pay) also live on a
+                // dedicated_nuban DVA, under the same shared Paystack account.
+                // Forward the original request untouched so nodoapi can verify
+                // Paystack's signature itself.
+                if (($data['channel'] ?? null) === 'dedicated_nuban') {
+                    $this->forwardToNodoApi($request);
+                }
                 $result = $this->handleChargeSuccess($request->all());
                 Log::info('✅ charge.success event processed');
                 return $result;
@@ -349,15 +356,17 @@ class WebhookController extends Controller
                 'payment_status' => $paymentStatus
             ];
 
+            $apiUrl = config('services.nodo_api.url') . '/api/payment-status/update';
+
             Log::info('API request payload prepared', [
-                'url' => 'https://nodopayapi-419811b691e7.herokuapp.com/api/payment-status/update',
+                'url' => $apiUrl,
                 'payload' => $payload
             ]);
 
             Log::info('🔄 Making HTTP request to external API...');
             $startTime = microtime(true);
 
-            $response = Http::timeout(30)->post('https://nodopayapi-419811b691e7.herokuapp.com/api/payment-status/update', $payload);
+            $response = Http::timeout(30)->post($apiUrl, $payload);
 
             $endTime = microtime(true);
             $responseTime = round(($endTime - $startTime) * 1000, 2); // Convert to milliseconds
@@ -376,7 +385,7 @@ class WebhookController extends Controller
                     'payment_status' => $paymentStatus,
                     'response' => $responseData,
                     'response_time_ms' => $responseTime,
-                    'api_url_called' => 'https://nodopayapi-419811b691e7.herokuapp.com/api/payment-status/update'
+                    'api_url_called' => $apiUrl
                 ]);
             } else {
                 $errorData = $response->json();
@@ -386,7 +395,7 @@ class WebhookController extends Controller
                     'response' => $errorData,
                     'status_code' => $response->status(),
                     'response_time_ms' => $responseTime,
-                    'api_url_called' => 'https://nodopayapi-419811b691e7.herokuapp.com/api/payment-status/update',
+                    'api_url_called' => $apiUrl,
                     'raw_response' => $response->body()
                 ]);
             }
@@ -400,7 +409,7 @@ class WebhookController extends Controller
                 'error' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
-                'api_url_called' => 'https://nodopayapi-419811b691e7.herokuapp.com/api/payment-status/update'
+                'api_url_called' => $apiUrl ?? null,
             ]);
             Log::info('=== PAYMENT STATUS UPDATE FAILED ===');
         }
@@ -518,6 +527,42 @@ class WebhookController extends Controller
             }
         } catch (\Exception $e) {
             Log::error('❌ Exception forwarding to foodstuff-api', ['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Forward the raw Paystack request (body + signature, byte-for-byte) to
+     * nodoapi so it can verify Paystack's own HMAC signature independently —
+     * unlike forwardToFoodstuffApi, this re-sends the exact bytes we received
+     * rather than a re-serialized payload, since nodoapi's webhook still
+     * checks the signature itself.
+     */
+    private function forwardToNodoApi(Request $request)
+    {
+        try {
+            $apiUrl = config('services.nodo_api.url');
+            $endpoint = $apiUrl . '/api/webhooks/paystack';
+            $event = $request->input('event', 'unknown');
+
+            $response = Http::timeout(30)
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                    'X-Paystack-Signature' => $request->header('X-Paystack-Signature'),
+                ])
+                ->withBody($request->getContent(), 'application/json')
+                ->post($endpoint);
+
+            if ($response->successful()) {
+                Log::info('✅ Forwarded to nodoapi', ['event' => $event, 'status' => $response->status()]);
+            } else {
+                Log::error('❌ nodoapi forward failed', [
+                    'event' => $event,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('❌ Exception forwarding to nodoapi', ['error' => $e->getMessage()]);
         }
     }
 

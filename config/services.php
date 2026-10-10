@@ -60,4 +60,9 @@ return [
         'url' => env('FOODSTUFF_API_URL', 'https://foodstuff-store-api-ff1db4a1d0cb.herokuapp.com'),
     ],
 
+    'nodo_api' => [
+        // FS Pay / Nodo — vendor purchase orders + settlement wallet
+        'url' => env('NODO_API_URL', 'https://stark-savannah-25644-0470c62ea4b7.herokuapp.com'),
+    ],
+
 ];
