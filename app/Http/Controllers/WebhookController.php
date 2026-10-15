@@ -83,6 +83,7 @@ class WebhookController extends Controller
                 $result = $this->handleTransferSuccess($data);
                 // Also notify foodstuff-api so vendor payout status can be tracked
                 $this->forwardToFoodstuffApi($request->all());
+                $this->forwardToNodoApi($request);
                 Log::info('✅ transfer.success event processed');
                 return $result;
 
@@ -91,12 +92,14 @@ class WebhookController extends Controller
                 $result = $this->handleTransferFailed($data);
                 // Also notify foodstuff-api
                 $this->forwardToFoodstuffApi($request->all());
+                $this->forwardToNodoApi($request);
                 Log::info('✅ transfer.failed event processed');
                 return $result;
 
             case 'transfer.reversed':
                 Log::warning('🔄 Transfer reversed', ['data' => $data]);
                 $this->forwardToFoodstuffApi($request->all());
+                $this->forwardToNodoApi($request);
                 return response()->json(['status' => 'success']);
 
             default:
