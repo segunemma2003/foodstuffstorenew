@@ -27,10 +27,12 @@ heroku git:remote -a your-app-name
 
 ## Step 3: Set Environment Variables
 
-Set the database connection using the provided MySQL connection string:
+Set the database connection using your MySQL connection string (get the
+real values from Railway's dashboard or `heroku config:get DB_URL` --
+never commit them):
 
 ```bash
-heroku config:set DB_URL="mysql://root:jNqOgloXvImgxWUYXqkkkwqHSbHJZfAy@centerbeam.proxy.rlwy.net:59838/railway"
+heroku config:set DB_URL="mysql://<user>:<password>@<host>:<port>/<database>"
 heroku config:set DB_CONNECTION=mysql
 ```
 
@@ -38,11 +40,11 @@ Or set individual database variables:
 
 ```bash
 heroku config:set DB_CONNECTION=mysql
-heroku config:set DB_HOST=centerbeam.proxy.rlwy.net
-heroku config:set DB_PORT=59838
-heroku config:set DB_DATABASE=railway
-heroku config:set DB_USERNAME=root
-heroku config:set DB_PASSWORD=jNqOgloXvImgxWUYXqkkkwqHSbHJZfAy
+heroku config:set DB_HOST=<host>
+heroku config:set DB_PORT=<port>
+heroku config:set DB_DATABASE=<database>
+heroku config:set DB_USERNAME=<user>
+heroku config:set DB_PASSWORD=<password>
 ```
 
 ## Step 4: Set Other Required Environment Variables

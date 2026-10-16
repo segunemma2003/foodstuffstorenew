@@ -17,3 +17,7 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+public/*.sql
+public/users.csv
+public/employee_report.xlsx
+public/excel/result-*.pdf
