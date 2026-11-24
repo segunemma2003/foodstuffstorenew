@@ -52,14 +52,14 @@ class BusinessController extends Controller
 
         // Delete old CAC file if exists
         if ($business->cacDocument) {
-            Storage::disk('s3')->delete($business->cacDocument->path);
+            Storage::disk('s3_private')->delete($business->cacDocument->path);
             $business->cacDocument->delete();
         }
 
         // Store in S3
         $path = $request->file('cac_file')->store(
             'business/cac/' . $business->id,
-            's3'
+            's3_private'
         );
 
         // Create CAC document record
@@ -75,7 +75,7 @@ class BusinessController extends Controller
             'message' => 'CAC document uploaded successfully',
             'data' => [
                 'document_id' => $cacDocument->id,
-                'url' => Storage::disk('s3')->url($path)
+                'url' => Storage::disk('s3_private')->temporaryUrl($path, now()->addMinutes(30))
             ]
         ]);
     }

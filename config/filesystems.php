@@ -58,8 +58,25 @@ return [
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            // R2: public files live under e.g. public/laravel/... and are served by the CDN (AWS_URL).
+            'root' => env('AWS_ROOT', ''),
             'throw' => false,
             'visibility' => 'public',
+        ],
+
+        // Private business documents (CAC, invoices, ID cards) — never public;
+        // open them with Storage::disk('s3_private')->temporaryUrl(...).
+        's3_private' => [
+            'driver' => 's3',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION'),
+            'bucket' => env('AWS_BUCKET'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'root' => env('AWS_PRIVATE_ROOT', ''),
+            'throw' => false,
+            'visibility' => 'private',
         ],
         'cloudinary' => [
             'driver'         => 'cloudinary',

@@ -17,7 +17,11 @@ class BusinessInvoice extends Model
     // Accessor for download URL
     public function getDownloadUrlAttribute()
     {
-        return Storage::disk($this->storage_disk ?: 's3')->url($this->file_path);
+        $disk = $this->storage_disk ?: 's3_private';
+        if ($disk === 's3_private') {
+            return Storage::disk($disk)->temporaryUrl($this->file_path, now()->addMinutes(30));
+        }
+        return Storage::disk($disk)->url($this->file_path);
     }
 
 }

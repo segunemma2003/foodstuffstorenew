@@ -33,7 +33,7 @@ class InvoiceController extends Controller
         $filename = 'invoices/' . $order->business_id . '/INV-' . $order->order_number . '.pdf';
 
         // Store PDF in S3
-        Storage::disk('s3')->put($filename, $pdf->output());
+        Storage::disk('s3_private')->put($filename, $pdf->output());
 
         // Create invoice record
         $invoice = BusinessInvoice::create([
@@ -41,7 +41,7 @@ class InvoiceController extends Controller
             'invoice_number' => 'INV-' . $order->order_number,
             'amount' => $order->total_amount,
             'file_path' => $filename,
-            'storage_disk' => 's3',
+            'storage_disk' => 's3_private',
             'status' => 'generated'
         ]);
 
@@ -49,7 +49,7 @@ class InvoiceController extends Controller
             'message' => 'Invoice generated successfully',
             'data' => [
                 'invoice' => $invoice,
-                'download_url' => Storage::disk('s3')->url($filename)
+                'download_url' => Storage::disk('s3_private')->temporaryUrl($filename, now()->addMinutes(30))
             ]
         ]);
     }
@@ -60,7 +60,7 @@ class InvoiceController extends Controller
         $order = $invoice->order;
 
         // Get the file from S3
-        $file = Storage::disk('s3')->get($invoice->file_path);
+        $file = Storage::disk($invoice->storage_disk ?: 's3_private')->get($invoice->file_path);
 
         // Send to FoodStuff store emails
         $emails = ['support@foodstuff.store', 'foodstuffstore33@gmail.com'];
@@ -86,11 +86,11 @@ class InvoiceController extends Controller
     {
         $invoice = BusinessInvoice::findOrFail($id);
 
-        if ($invoice->storage_disk !== 's3') {
+        if (! in_array($invoice->storage_disk, ['s3', 's3_private'], true)) {
             return response()->json(['message' => 'Invoice not stored in S3'], 400);
         }
 
-        $file = Storage::disk('s3')->get($invoice->file_path);
+        $file = Storage::disk($invoice->storage_disk ?: 's3_private')->get($invoice->file_path);
 
         return response($file, 200, [
             'Content-Type' => 'application/pdf',

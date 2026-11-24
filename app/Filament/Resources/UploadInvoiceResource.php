@@ -36,8 +36,8 @@ class UploadInvoiceResource extends Resource
                 FileUpload::make('invoice_url')
                 ->openable()
                     ->required()
-                    ->directory('images')
-                    ->disk('s3')->visibility('public')
+                    ->directory('invoices')
+                    ->disk('s3_private')->visibility('private')
                     ->downloadable()
                    ,
                 Forms\Components\TextInput::make('total')
@@ -84,7 +84,7 @@ class UploadInvoiceResource extends Resource
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\Action::make("preview")
     ->label('Preview PDF')
-    ->url(fn ($record) => Storage::disk('s3')->url($record->invoice_url))
+    ->url(fn ($record) => Storage::disk('s3_private')->temporaryUrl($record->invoice_url, now()->addMinutes(30)))
     ->openUrlInNewTab()
     ->icon('heroicon-o-eye')
             ])

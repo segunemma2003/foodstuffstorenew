@@ -189,13 +189,13 @@ class EmployeeResource extends Resource
 
         // Upload the encoded image data to Cloudinary
         try {
-            Storage::disk('s3')->put($cloudinaryPath, (string) $imageData, 'public');
+            Storage::disk('s3_private')->put($cloudinaryPath, (string) $imageData);
 
             // Get the URL to download the image from Cloudinary
-            $url = Storage::disk('s3')->url($cloudinaryPath);
+            $url = Storage::disk('s3_private')->temporaryUrl($cloudinaryPath, now()->addMinutes(30));
             Log::info($url);
             // Return a download response directly from Cloudinary
-            return Storage::disk('s3')->download($cloudinaryPath);
+            return Storage::disk('s3_private')->download($cloudinaryPath);
         } catch (\Exception $e) {
             // Log the error if upload fails
             Log::error('Cloudinary upload failed: ' . $e->getMessage());
