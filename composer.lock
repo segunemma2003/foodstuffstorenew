@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "067655b9b4844c8090c3b53354af30a4",
+    "content-hash": "b1b0a4b800ae572c691b561c75974b5c",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -13750,82 +13750,6 @@
             "time": "2024-11-04T09:10:16+00:00"
         },
         {
-            "name": "teguh02/filament-db-sync",
-            "version": "v1.2",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/teguh02/filament-db-sync.git",
-                "reference": "b4b8c817cb1599a85d8ed1bc1de6149d4e9bb2fa"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/teguh02/filament-db-sync/zipball/b4b8c817cb1599a85d8ed1bc1de6149d4e9bb2fa",
-                "reference": "b4b8c817cb1599a85d8ed1bc1de6149d4e9bb2fa",
-                "shasum": ""
-            },
-            "require": {
-                "filament/filament": "^3.0",
-                "php": "^8.1",
-                "spatie/laravel-package-tools": "^1.15.0"
-            },
-            "require-dev": {
-                "laravel/pint": "^1.0",
-                "nunomaduro/collision": "^7.9",
-                "nunomaduro/larastan": "^2.0.1",
-                "orchestra/testbench": "^8.0",
-                "pestphp/pest": "^2.1",
-                "pestphp/pest-plugin-arch": "^2.0",
-                "pestphp/pest-plugin-laravel": "^2.0",
-                "phpstan/extension-installer": "^1.1",
-                "phpstan/phpstan-deprecation-rules": "^1.0",
-                "phpstan/phpstan-phpunit": "^1.0",
-                "spatie/laravel-ray": "^1.26"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "providers": [
-                        "Teguh02\\FilamentDbSync\\FilamentDbSyncServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Teguh02\\FilamentDbSync\\": "src/",
-                    "Teguh02\\FilamentDbSync\\Database\\Factories\\": "database/factories/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Teguh Rijanandi",
-                    "email": "teguhrijanandi02@gmail.com",
-                    "role": "Developer"
-                }
-            ],
-            "description": "This package allow sync two different laravel filament app db",
-            "homepage": "https://github.com/teguh02/filament-db-sync",
-            "keywords": [
-                "filament-db-sync",
-                "laravel",
-                "teguh02"
-            ],
-            "support": {
-                "issues": "https://github.com/teguh02/filament-db-sync/issues",
-                "source": "https://github.com/teguh02/filament-db-sync"
-            },
-            "funding": [
-                {
-                    "url": "https://github.com/teguh02",
-                    "type": "github"
-                }
-            ],
-            "time": "2024-10-25T08:13:57+00:00"
-        },
-        {
             "name": "tijsverkoyen/css-to-inline-styles",
             "version": "v2.3.0",
             "source": {
@@ -17039,5 +16963,5 @@
     "platform-overrides": {
         "php": "8.4.27"
     },
-    "plugin-api-version": "2.6.0"
+    "plugin-api-version": "2.11.0"
 }

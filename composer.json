@@ -44,7 +44,6 @@
         "symfony/http-client": "^7.1",
         "symfony/postmark-mailer": "^7.1",
         "tailflow/laravel-orion": "^2.22",
-        "teguh02/filament-db-sync": "^1.2",
         "tomatophp/filament-invoices": "^1.0",
         "tomatophp/filament-pwa": "^1.0",
         "unicodeveloper/laravel-paystack": "^1.2",

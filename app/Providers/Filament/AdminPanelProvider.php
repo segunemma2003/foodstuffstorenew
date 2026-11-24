@@ -11,7 +11,6 @@ use Filament\Pages;
 use Filament\Panel;
 use Filament\Enums\ThemeMode;
 use Filament\PanelProvider;
-use Teguh02\FilamentDbSync\FilamentDbSync;
 use Filament\Support\Colors\Color;
 use Filament\Widgets;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -77,7 +76,6 @@ class AdminPanelProvider extends PanelProvider
                 FilamentDatabaseSchedulePlugin::make(),
                 \TomatoPHP\FilamentPWA\FilamentPWAPlugin::make(),
                 \Hasnayeen\Themes\ThemesPlugin::make(),
-                FilamentDbSync::make(),
 
 
 
